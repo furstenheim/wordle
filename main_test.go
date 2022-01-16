@@ -20,3 +20,19 @@ func TestComputeCombination(t *testing.T) {
 	}
 }
 
+func TestToNumber(t *testing.T) {
+	tcs := []struct {
+		input CombinationArray
+		expected Combination
+	}{
+		{CombinationArray{0, 0, 0, 0, 0}, 0},
+		{CombinationArray{0, 2, 0, 0, 0}, 6},
+		{CombinationArray{0, 2, 0, 0, 1}, 87},
+	}
+
+	for _, tc := range tcs {
+		res := tc.input.toNumber()
+		assert.Equal(t, tc.expected, res)
+	}
+}
+

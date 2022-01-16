@@ -34,6 +34,16 @@ func computeCombination (input, solution Word) CombinationArray {
 	return res
 }
 
+func (c CombinationArray) toNumber () Combination {
+	var power, res byte
+	power = 1
+	for _, v := range (c) {
+		res += (byte(v)) *  power
+		power *= 3
+	}
+	return Combination(res)
+}
+
 type CombinationColor byte
 
 const (
