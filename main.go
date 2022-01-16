@@ -1,14 +1,18 @@
 package main
 
 import (
+	"errors"
 	"io/ioutil"
 	"log"
+	"os"
 	"regexp"
 	"strings"
+	"bytes"
+	"encoding/gob"
 )
 
 const WORD_LENGTH = 5
-
+const PRECOMPUTED_FILE = "encoded-precomputed"
 type CombinationString string
 
 type Combination byte
@@ -39,10 +43,6 @@ func main () {
 			possibleWords = append(possibleWords, precomputed.Dictionary[i])
 		}
 	}
-	solarCa := precomputed.ComparisonAggregate[2192]
-	log.Println(caInput.isCompatibleWith(solarCa))
-	log.Println(precomputed.Dictionary[2192])
-	log.Println(solarCa)
 	log.Println(possibleWords)
 	log.Println(len(possibleWords))
 }
@@ -51,7 +51,6 @@ func (ca1 ComparisonAggregate) isCompatibleWith (ca2 ComparisonAggregate) bool {
 	for i, v1 := range(ca1) {
 		v2 := ca2[i]
 		if v2 < v1 {
-			log.Println("Incompatible at ", i, v1, v2)
 			return false
 		}
 	}
@@ -104,6 +103,18 @@ func parseInput () []SharedInput {
 	return sharedInputs
 }
 
+func fileExists (path string) bool {
+	if _, err := os.Stat(path); err == nil {
+		return true
+
+	} else if errors.Is(err, os.ErrNotExist) {
+		return false
+
+	} else {
+		return false
+	}
+}
+
 
 func (c CombinationString) toCombination () Combination {
 	ca := CombinationArray{}
@@ -130,6 +141,20 @@ func (c CombinationString) toCombination () Combination {
 }
 
 func computePrecomputed () Precomputed {
+	if fileExists(PRECOMPUTED_FILE) {
+		log.Println("Loading precomputed from file")
+		precomputedFile, precomputedErr := os.Open(PRECOMPUTED_FILE)
+		if precomputedErr != nil {
+			log.Fatal("Error reading precomputed")
+		}
+		dec := gob.NewDecoder(precomputedFile)
+		var precomputed Precomputed
+		decodeErr := dec.Decode(&precomputed)
+		if decodeErr != nil {
+			log.Fatal("Decode error", decodeErr)
+		}
+		return precomputed
+	}
 	file, openErr := ioutil.ReadFile("words.en.2.txt")
 	if openErr != nil {
 		log.Fatal("Error opening", openErr)
@@ -150,6 +175,10 @@ func computePrecomputed () Precomputed {
 		}
 		precomputed.ComparisonAggregate[i] = ca
 	}
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	enc.Encode(precomputed)
+	ioutil.WriteFile(PRECOMPUTED_FILE, buf.Bytes(), 0644)
 	return precomputed
 }
 
