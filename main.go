@@ -24,7 +24,67 @@ type SharedInput struct {
 }
 
 func main () {
-	// precomputed := computePrecomputed()
+	precomputed := computePrecomputed()
+	log.Println("computed precomputed")
+	sharedInputs := parseInput()
+	caInput := sharedInputs[0].toComparisonAggregate()
+
+	for _, v := range sharedInputs[1:] {
+		caInput = mergeComparisonAggregate(caInput, v.toComparisonAggregate())
+	}
+ 	possibleWords := []Word{}
+
+	for i, ca := range(precomputed.ComparisonAggregate) {
+		if caInput.isCompatibleWith(ca) {
+			possibleWords = append(possibleWords, precomputed.Dictionary[i])
+		}
+	}
+	solarCa := precomputed.ComparisonAggregate[2192]
+	log.Println(caInput.isCompatibleWith(solarCa))
+	log.Println(precomputed.Dictionary[2192])
+	log.Println(solarCa)
+	log.Println(possibleWords)
+	log.Println(len(possibleWords))
+}
+
+func (ca1 ComparisonAggregate) isCompatibleWith (ca2 ComparisonAggregate) bool {
+	for i, v1 := range(ca1) {
+		v2 := ca2[i]
+		if v2 < v1 {
+			log.Println("Incompatible at ", i, v1, v2)
+			return false
+		}
+	}
+	return true
+}
+
+func mergeComparisonAggregate (ca1, ca2 ComparisonAggregate) ComparisonAggregate {
+	res := ComparisonAggregate{}
+	for i, v1 := range(ca1) {
+		v2 := ca2[i]
+		res[i] = max(v1, v2)
+	}
+	return res
+}
+
+func max (a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func (si SharedInput) toComparisonAggregate () ComparisonAggregate {
+	ca := ComparisonAggregate{}
+	for _, v := range (si.combinations) {
+		ca[v]++
+	}
+	return ca
+}
+
+
+
+func parseInput () []SharedInput {
 	inputFile, readErr := ioutil.ReadFile("input.txt")
 	if readErr != nil {
 		log.Fatal("Error on input", readErr)
@@ -33,7 +93,6 @@ func main () {
 	inputs := inputsRegex.FindAllString(string(inputFile), -1)
 	sharedInputs := []SharedInput{}
 	for _, v := range(inputs) {
-		log.Println(string(v))
 		sa := SharedInput{combinations: []Combination{}}
 		split := strings.Split(string(v), "\n")
 
@@ -42,8 +101,9 @@ func main () {
 		}
 		sharedInputs = append(sharedInputs, sa)
 	}
-	log.Println(sharedInputs)
+	return sharedInputs
 }
+
 
 func (c CombinationString) toCombination () Combination {
 	ca := CombinationArray{}
@@ -70,7 +130,7 @@ func (c CombinationString) toCombination () Combination {
 }
 
 func computePrecomputed () Precomputed {
-	file, openErr := ioutil.ReadFile("words.en.txt")
+	file, openErr := ioutil.ReadFile("words.en.2.txt")
 	if openErr != nil {
 		log.Fatal("Error opening", openErr)
 	}
@@ -103,7 +163,7 @@ type Precomputed struct {
 func computeCombination (input, solution Word) CombinationArray {
 	count := map[byte]int{}
 	if len(input) != WORD_LENGTH || len(solution) != WORD_LENGTH {
-		panic("Unexpected length for string")
+		log.Fatal("Unexpected length for string", input, len(input))
 	}
 	res := CombinationArray{}
 
