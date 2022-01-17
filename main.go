@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -12,7 +13,16 @@ import (
 )
 
 const WORD_LENGTH = 5
+// const PRECOMPUTED_FILE = "encoded-precomputed-es"
+// const WORDS_FILE = "words.es.txt"
+// const POSSIBLE_WORDS = "words.es.txt"
+// const INPUT_FILE = "input.es.txt"
+// const REGEX = "Wordle \\(ES\\) #\\d{2} (\\d|X)/\\d\n\n((\U0001f7e9|\U0001f7e8|\u2b1b|\u2b1c){5}\n)+"
 const PRECOMPUTED_FILE = "encoded-precomputed"
+const WORDS_FILE = "words.en.2.txt"
+const POSSIBLE_WORDS = "possible_answers.en.txt"
+const INPUT_FILE = "input.2.txt"
+const REGEX = "Wordle \\d{3} \\d/\\d\n\n((\U0001f7e9|\U0001f7e8|\u2b1b|\u2b1c){5}\n)+"
 type CombinationString string
 
 type Combination byte
@@ -40,9 +50,12 @@ func main () {
 
 	for i, ca := range(precomputed.ComparisonAggregate) {
 		if caInput.isCompatibleWith(ca) {
-			possibleWords = append(possibleWords, precomputed.Dictionary[i])
+			possibleWords = append(possibleWords, precomputed.DictionaryPossible[i])
 		}
 	}
+	/*
+	log.Println(precomputed.Dictionary[866])
+	log.Println(caInput.isCompatibleWith(precomputed.ComparisonAggregate[866]))*/
 	log.Println(possibleWords)
 	log.Println(len(possibleWords))
 }
@@ -84,11 +97,11 @@ func (si SharedInput) toComparisonAggregate () ComparisonAggregate {
 
 
 func parseInput () []SharedInput {
-	inputFile, readErr := ioutil.ReadFile("input.txt")
+	inputFile, readErr := ioutil.ReadFile(INPUT_FILE)
 	if readErr != nil {
 		log.Fatal("Error on input", readErr)
 	}
-	inputsRegex := regexp.MustCompile("Wordle \\d{3} \\d/\\d\n\n((\U0001f7e9|\U0001f7e8|\u2b1b|\u2b1c){5}\n)+")
+	inputsRegex := regexp.MustCompile(REGEX)
 	inputs := inputsRegex.FindAllString(string(inputFile), -1)
 	sharedInputs := []SharedInput{}
 	for _, v := range(inputs) {
@@ -155,20 +168,31 @@ func computePrecomputed () Precomputed {
 		}
 		return precomputed
 	}
-	file, openErr := ioutil.ReadFile("words.en.2.txt")
+	file, openErr := ioutil.ReadFile(WORDS_FILE)
 	if openErr != nil {
 		log.Fatal("Error opening", openErr)
 	}
+
+	filePossible, openPossibleErr := ioutil.ReadFile(POSSIBLE_WORDS)
+	if openPossibleErr != nil {
+		log.Fatal("Error opening possible", openPossibleErr)
+	}
 	split := strings.Split(string(file), "\n")
+	splitPossible := strings.Split(string(filePossible), "\n")
 	dictionary := make([]Word, len(split))
+	dictionaryPossible := make([]Word, len(splitPossible))
 	for i, v := range(split) {
 		dictionary[i] = Word(v)
 	}
-	precomputed := Precomputed{
-		Dictionary: dictionary,
-		ComparisonAggregate: make([]ComparisonAggregate, len(dictionary)),
+	for i, v := range(splitPossible) {
+		dictionaryPossible[i] = Word(v)
 	}
-	for i, v := range (dictionary) {
+	precomputed := Precomputed{
+		DictionaryPossible: dictionaryPossible,
+		Dictionary: dictionary,
+		ComparisonAggregate: make([]ComparisonAggregate, len(dictionaryPossible)),
+	}
+	for i, v := range (dictionaryPossible) {
 		ca := ComparisonAggregate{}
 		for _, w := range(dictionary) {
 			ca[computeCombination(w, v).toNumber()]++
@@ -184,28 +208,31 @@ func computePrecomputed () Precomputed {
 
 type Precomputed struct {
 	Dictionary []Word
+	DictionaryPossible []Word
 	ComparisonAggregate []ComparisonAggregate
 }
 
 
 
 func computeCombination (input, solution Word) CombinationArray {
-	count := map[byte]int{}
-	if len(input) != WORD_LENGTH || len(solution) != WORD_LENGTH {
-		log.Fatal("Unexpected length for string", input, len(input))
+	count := map[rune]int{}
+	inputArray := []rune(input)
+	solutionArray := []rune(solution)
+	if len(inputArray) != WORD_LENGTH || len(solutionArray) != WORD_LENGTH {
+		log.Fatal("Unexpected length for string", inputArray, len(inputArray), solutionArray, len(solutionArray), fmt.Sprintf(" '%x' ", inputArray))
 	}
 	res := CombinationArray{}
 
 	for i := 0; i < WORD_LENGTH; i++ {
-		if input[i] == solution[i] {
+		if inputArray[i] == solutionArray[i] {
 			res[i] = Green
 		} else {
-			count[solution[i]]++
+			count[solutionArray[i]]++
 		}
 	}
 	for i := 0; i < WORD_LENGTH; i++ {
-		if input[i] != solution[i] && count[input[i]] > 0 {
-			count[input[i]]--
+		if inputArray[i] != solutionArray[i] && count[inputArray[i]] > 0 {
+			count[inputArray[i]]--
 			res[i] = Yellow
 		}
 	}
