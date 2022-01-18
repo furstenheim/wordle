@@ -21,7 +21,7 @@ const WORD_LENGTH = 5
 const PRECOMPUTED_FILE = "encoded-precomputed"
 const WORDS_FILE = "words.en.2.txt"
 const POSSIBLE_WORDS = "possible_answers.en.txt"
-const INPUT_FILE = "input.2.txt"
+const INPUT_FILE = "input.txt"
 const REGEX = "Wordle \\d{3} \\d/\\d\n\n((\U0001f7e9|\U0001f7e8|\u2b1b|\u2b1c){5}\n)+"
 type CombinationString string
 
@@ -39,25 +39,80 @@ type SharedInput struct {
 
 func main () {
 	precomputed := computePrecomputed()
-	log.Println("computed precomputed")
 	sharedInputs := parseInput()
+	log.Println("computed precomputed")
+	possibleWordsIndexes := getFirstFilterOfPossibleWordsIndexes(precomputed, sharedInputs)
+
+	min := len(possibleWordsIndexes)
+	var maxWord Word
+	var maxCombination ComparisonAggregate
+
+	for _, v := range(precomputed.Dictionary) {
+		ca := ComparisonAggregate{}
+		for _, i := range possibleWordsIndexes {
+			w := precomputed.DictionaryPossible[i]
+			combination := computeCombination(v, w).toNumber()
+			ca[combination]++
+		}
+		minOfCombinations := 0
+		for _, count := range ca {
+			minOfCombinations = max(count, minOfCombinations)
+		}
+		if minOfCombinations < min {
+			min = minOfCombinations
+			maxWord = v
+			maxCombination = ca
+		}
+	}
+	log.Println(maxWord, min, len(possibleWordsIndexes), maxCombination, (precomputed.DictionaryPossible[possibleWordsIndexes[0]]))
+}
+
+func minOf (a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+
+type fullHint struct {
+	combinationArray CombinationArray
+	word Word
+}
+func getFirstFilterOfPossibleWordsIndexes(precomputed Precomputed, sharedInputs []SharedInput) []int {
+	computed := []fullHint{
+		/*{
+			combinationArray: CombinationArray{Yellow, Yellow, Grey, Grey, Yellow},
+			word: "ariel",
+		},*//*
+		{
+			combinationArray: CombinationArray{Yellow, Grey, Grey, Green, Green},
+			word: "acmic",
+		},
+		{
+			combinationArray: CombinationArray{Grey, Grey, Green, Grey, Green},
+			word: "alive",
+		},*/
+	}
 	caInput := sharedInputs[0].toComparisonAggregate()
 
 	for _, v := range sharedInputs[1:] {
 		caInput = mergeComparisonAggregate(caInput, v.toComparisonAggregate())
 	}
- 	possibleWords := []Word{}
+	possibleWords := []int{}
 
-	for i, ca := range(precomputed.ComparisonAggregate) {
+	possibleWordsLabel: for i, ca := range(precomputed.ComparisonAggregate) {
+		for _, hint := range computed {
+			combination := computeCombination(hint.word, precomputed.DictionaryPossible[i])
+			if combination != hint.combinationArray {
+				continue possibleWordsLabel
+			}
+		}
 		if caInput.isCompatibleWith(ca) {
-			possibleWords = append(possibleWords, precomputed.DictionaryPossible[i])
+			possibleWords = append(possibleWords, i)
 		}
 	}
-	/*
-	log.Println(precomputed.Dictionary[866])
-	log.Println(caInput.isCompatibleWith(precomputed.ComparisonAggregate[866]))*/
-	log.Println(possibleWords)
-	log.Println(len(possibleWords))
+	return possibleWords
 }
 
 func (ca1 ComparisonAggregate) isCompatibleWith (ca2 ComparisonAggregate) bool {
