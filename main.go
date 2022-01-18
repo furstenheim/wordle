@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -40,31 +41,55 @@ type SharedInput struct {
 func main () {
 	precomputed := computePrecomputed()
 	sharedInputs := parseInput()
-	log.Println("computed precomputed")
-	possibleWordsIndexes := getFirstFilterOfPossibleWordsIndexes(precomputed, sharedInputs)
+	// log.Println("computed precomputed")
+	playedHints := []FullHint{}
+	reader := bufio.NewReader(os.Stdin)
+	for true {
+		possibleWordsIndexes := getPossibleListOfWords(playedHints, precomputed, sharedInputs)
 
-	min := len(possibleWordsIndexes)
-	var maxWord Word
-	var maxCombination ComparisonAggregate
+		if len(possibleWordsIndexes) == 1 {
+			fmt.Printf("That was fast!! The solution is %s\n", precomputed.DictionaryPossible[possibleWordsIndexes[0]])
+			return
+		}
 
-	for _, v := range(precomputed.Dictionary) {
-		ca := ComparisonAggregate{}
-		for _, i := range possibleWordsIndexes {
-			w := precomputed.DictionaryPossible[i]
-			combination := computeCombination(v, w).toNumber()
-			ca[combination]++
+		min := len(possibleWordsIndexes)
+		var maxWord Word
+
+		for _, v := range(precomputed.Dictionary) {
+			ca := ComparisonAggregate{}
+			for _, i := range possibleWordsIndexes {
+				w := precomputed.DictionaryPossible[i]
+				combination := computeCombination(v, w).toNumber()
+				ca[combination]++
+			}
+			minOfCombinations := 0
+			for _, count := range ca {
+				minOfCombinations = max(count, minOfCombinations)
+			}
+			if minOfCombinations < min {
+				min = minOfCombinations
+				maxWord = v
+			}
 		}
-		minOfCombinations := 0
-		for _, count := range ca {
-			minOfCombinations = max(count, minOfCombinations)
+		fmt.Printf("There are currently %d possible words. Best move is to try \033[1m%s\033[0m\n", len(possibleWordsIndexes), maxWord)
+		fmt.Printf("Enter the response to the clue:\n - \033[1mW\033[0m: White \n - \033[1mY\033[0m: Yellow \n - \033[1mG\033[0m: Green \n")
+
+		input, _ := reader.ReadString('\n')
+		split := strings.Split(input, "")
+		playedHint := FullHint{}
+		for i, v := range (split[0:5]) {
+			switch v {
+			case "W":
+				playedHint.combinationArray[i] = White
+			case "Y":
+				playedHint.combinationArray[i] = Yellow
+			default:
+				playedHint.combinationArray[i] = Green
+			}
 		}
-		if minOfCombinations < min {
-			min = minOfCombinations
-			maxWord = v
-			maxCombination = ca
-		}
+		playedHint.word = maxWord
+		playedHints = append(playedHints, playedHint)
 	}
-	log.Println(maxWord, min, len(possibleWordsIndexes), maxCombination, (precomputed.DictionaryPossible[possibleWordsIndexes[0]]))
 }
 
 func minOf (a, b int) int {
@@ -75,25 +100,11 @@ func minOf (a, b int) int {
 }
 
 
-type fullHint struct {
+type FullHint struct {
 	combinationArray CombinationArray
 	word Word
 }
-func getFirstFilterOfPossibleWordsIndexes(precomputed Precomputed, sharedInputs []SharedInput) []int {
-	computed := []fullHint{
-		/*{
-			combinationArray: CombinationArray{Yellow, Yellow, Grey, Grey, Yellow},
-			word: "ariel",
-		},*//*
-		{
-			combinationArray: CombinationArray{Yellow, Grey, Grey, Green, Green},
-			word: "acmic",
-		},
-		{
-			combinationArray: CombinationArray{Grey, Grey, Green, Grey, Green},
-			word: "alive",
-		},*/
-	}
+func getPossibleListOfWords(playedHints []FullHint, precomputed Precomputed, sharedInputs []SharedInput) []int {
 	caInput := sharedInputs[0].toComparisonAggregate()
 
 	for _, v := range sharedInputs[1:] {
@@ -102,7 +113,7 @@ func getFirstFilterOfPossibleWordsIndexes(precomputed Precomputed, sharedInputs 
 	possibleWords := []int{}
 
 	possibleWordsLabel: for i, ca := range(precomputed.ComparisonAggregate) {
-		for _, hint := range computed {
+		for _, hint := range playedHints {
 			combination := computeCombination(hint.word, precomputed.DictionaryPossible[i])
 			if combination != hint.combinationArray {
 				continue possibleWordsLabel
@@ -190,9 +201,9 @@ func (c CombinationString) toCombination () Combination {
 	var v rune
 	for _, v = range(c) {
 		if v == 11035 {
-			ca[i] = Grey
+			ca[i] = White
 		} else if v == 11036 {
-			ca[i] = Grey
+			ca[i] = White
 		} else if v == 129000 {
 			ca[i] = Yellow
 		} else if v == 129001 {
@@ -210,7 +221,7 @@ func (c CombinationString) toCombination () Combination {
 
 func computePrecomputed () Precomputed {
 	if fileExists(PRECOMPUTED_FILE) {
-		log.Println("Loading precomputed from file")
+		// log.Println("Loading precomputed from file")
 		precomputedFile, precomputedErr := os.Open(PRECOMPUTED_FILE)
 		if precomputedErr != nil {
 			log.Fatal("Error reading precomputed")
@@ -308,7 +319,7 @@ func (c CombinationArray) toNumber () Combination {
 type CombinationColor byte
 
 const (
-	Grey CombinationColor = iota
+	White CombinationColor = iota
 	Yellow
 	Green
 )
