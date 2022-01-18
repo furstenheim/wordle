@@ -14,6 +14,8 @@ import (
 )
 
 const WORD_LENGTH = 5
+
+// Uncomment for wordle in Spanish
 // const PRECOMPUTED_FILE = "encoded-precomputed-es"
 // const WORDS_FILE = "words.es.txt"
 // const POSSIBLE_WORDS = "words.es.txt"
